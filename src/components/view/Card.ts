@@ -164,11 +164,11 @@ export class PreviewCard extends Component<TProductPreviewCardInfo> {
 	set price(value: number) {
 		if (value === null) {
 			this._price.textContent = '0 синапсов';
-            this.button.disabled = true;
+			this.button.disabled = true;
 		} else {
 			this._price.textContent = `${value} синапсов`;
 		}
-	}	
+	}
 
 	toggleAction() {
 		if (this.cardAction === 'add') {

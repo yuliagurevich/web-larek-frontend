@@ -1,16 +1,16 @@
 import './scss/styles.scss';
 
-import { WebLarekApi } from './components/WebLarekApi';
+import { IProduct, TProductId } from './types';
 import { CDN_URL, API_URL, settings } from './utils/constants';
-import { Product, ProductsData } from './components/model/ProductsData';
+import { WebLarekApi } from './components/WebLarekApi';
+import { EventEmitter } from './components/base/events';
+import { ProductsData } from './components/model/ProductsData';
+import { OrderData } from './components/model/OrderData';
+import { cloneTemplate, ensureElement } from './utils/utils';
+import { Modal } from './components/common/Modal';
 import { Page } from './components/view/Page';
 import { BasketCard, CatalogCard, PreviewCard } from './components/view/Card';
-import { cloneTemplate, ensureElement } from './utils/utils';
-import { EventEmitter } from './components/base/events';
-import { Modal } from './components/common/Modal';
-import { OrderData } from './components/model/OrderData';
 import { Basket } from './components/view/Basket';
-import { IOrder, IProduct, TProductId } from './types';
 import { Order } from './components/view/Order';
 import { Contacts } from './components/view/Contacts';
 import { Success } from './components/view/Success';
@@ -44,6 +44,66 @@ const basketElement = new Basket(cloneTemplate(basketTemplate), {
 		events.emit('order:start');
 	},
 });
+let basketItems: HTMLElement[];
+const orderForm = new Order(cloneTemplate(orderTemplate), {
+	handleOrderButtonClick: (event: SubmitEvent) => {
+		event.preventDefault();
+		events.emit('order:proceed');
+	},
+	handleAddressInputChange: (event: InputEvent) => {
+		const target = event.target as HTMLInputElement;
+		order.address = target.value;
+		const { payment, address } = order.checkVlidity();
+		orderForm.isValid = !payment && !address;
+		orderForm.errors = Object.values({ payment, address })
+			.filter((i) => !!i)
+			.join(' ');
+	},
+	handleCardButtonClick: () => {
+		order.payment = 'online';
+		orderForm.payment = 'online';
+		const { payment, address } = order.checkVlidity();
+		orderForm.isValid = !payment && !address;
+		orderForm.errors = Object.values({ payment, address })
+			.filter((i) => !!i)
+			.join(' ');
+	},
+	handleCashButtonClick: () => {
+		order.payment = 'cash';
+		orderForm.payment = 'cash';
+		const { payment, address } = order.checkVlidity();
+		orderForm.isValid = !payment && !address;
+		orderForm.errors = Object.values({ payment, address })
+			.filter((i) => !!i)
+			.join(' ');
+	},
+});
+const contactsForm = new Contacts(cloneTemplate(contactsTemplate), {
+	handleSubmitContactsButtonClick: (event: SubmitEvent) => {
+		event.preventDefault();
+		events.emit('order:place');
+	},
+	handleEmailInputChange: (event) => {
+		const target = event.target as HTMLInputElement;
+		order.email = target.value;
+		const { email, phone } = order.checkVlidity();
+
+		contactsForm.isValid = !email && !phone;
+		contactsForm.errors = Object.values({ email, phone })
+			.filter((i) => !!i)
+			.join(' ');
+	},
+	handlePhoneInputChange: (event) => {
+		const target = event.target as HTMLInputElement;
+		order.phone = target.value;
+		const { email, phone } = order.checkVlidity();
+		contactsForm.isValid = !email && !phone;
+		contactsForm.errors = Object.values({ email, phone })
+			.filter((i) => !!i)
+			.join(' ');
+	},
+});
+const successElement = new Success(cloneTemplate(successTemplate), events);
 
 // Реакция по клику на кнопку закрытия окна подтверждения заказа
 events.on('order:finished', () => {
@@ -62,52 +122,22 @@ events.on('order:place', () => {
 			items: order.items,
 		})
 		.then((orderResponse) => {
-			if (orderResponse) {
-				const successElement = new Success(
-					cloneTemplate(successTemplate),
-					events
-				);
-				modalElement.render({
-					content: successElement.render({
-						orderTotal: orderResponse.total,
-					}),
-				});
-				order.clearOrder();
-				pageElement.basketCounter = order.items.length;
-			} else {
-				console.log('Something went really wrong');
-			}
+			modalElement.render({
+				content: successElement.render({
+					orderTotal: orderResponse.total,
+				}),
+			});
+			order.clearOrder();
+			pageElement.basketCounter = order.items.length;
+		})
+		.catch((error) => {
+			console.log('Ошибка при отправке заказа на сервер', error);
 		});
 });
 
 // Реакция на подтверждение способа оплаты и адреса доставки:
 // открытие формы контактов
 events.on('order:proceed', () => {
-	const contactsForm = new Contacts(cloneTemplate(contactsTemplate), {
-		handleSubmitContactsButtonClick: (event: SubmitEvent) => {
-			event.preventDefault();
-			events.emit('order:place');
-		},
-		handleEmailInputChange: (event) => {
-			const target = event.target as HTMLInputElement;
-			order.email = target.value;
-			const { email, phone } = order.checkVlidity();
-
-			contactsForm.isValid = !email && !phone;
-			contactsForm.errors = Object.values({ email, phone })
-				.filter((i) => !!i)
-				.join(' ');
-		},
-		handlePhoneInputChange: (event) => {
-			const target = event.target as HTMLInputElement;
-			order.phone = target.value;
-			const { email, phone } = order.checkVlidity();
-			contactsForm.isValid = !email && !phone;
-			contactsForm.errors = Object.values({ email, phone })
-				.filter((i) => !!i)
-				.join(' ');
-		},
-	});
 	modalElement.render({
 		content: contactsForm.render({
 			email: order.email,
@@ -126,40 +156,6 @@ events.on('order:proceed', () => {
 // Реакция на клик по кнопке начала оформления заказа:
 // открытие формы выбора способа платежа и адреса доставки
 events.on('order:start', () => {
-	const orderForm = new Order(cloneTemplate(orderTemplate), {
-		handleOrderButtonClick: (event: SubmitEvent) => {
-			event.preventDefault();
-			events.emit('order:proceed');
-		},
-		handleAddressInputChange: (event: InputEvent) => {
-			const target = event.target as HTMLInputElement;
-			order.address = target.value;
-			const { payment, address } = order.checkVlidity();
-			orderForm.isValid = !payment && !address;
-			orderForm.errors = Object.values({ payment, address })
-				.filter((i) => !!i)
-				.join(' ');
-		},
-		handleCardButtonClick: () => {
-			order.payment = 'online';
-			orderForm.payment = 'online';
-			const { payment, address } = order.checkVlidity();
-			orderForm.isValid = !payment && !address;
-			orderForm.errors = Object.values({ payment, address })
-				.filter((i) => !!i)
-				.join(' ');
-		},
-		handleCashButtonClick: () => {
-			order.payment = 'cash';
-			orderForm.payment = 'cash';
-			const { payment, address } = order.checkVlidity();
-			orderForm.isValid = !payment && !address;
-			orderForm.errors = Object.values({ payment, address })
-				.filter((i) => !!i)
-				.join(' ');
-		},
-	});
-
 	modalElement.render({
 		content: orderForm.render({
 			payment: order.payment,
@@ -175,79 +171,60 @@ events.on('order:start', () => {
 	});
 });
 
-// Реакция на клик по кнопке удаления товара из корзины
-events.on('item:remove', (product: IProduct) => {
-	pageElement.basketCounter = order.removeItem(product.id, product.price);
-	basketElement.render({
-		basketPrice: order.total,
-		basketList: Array.from(order.items).map((id: TProductId, index: number) => {
-			const product = productsList.getProductById(id);
-			const cardElement = new BasketCard(cloneTemplate(basketCardTemplate), {
-				handleItemRemove: () => {
-					events.emit('item:remove', product);
-				},
-			});
-			return cardElement.render({
-				itemIndex: index + 1,
-				title: product.title,
-				price: product.price,
-			});
-		}),
-		isValid: !order.checkVlidity().items,
-		error: order.checkVlidity().items,
-	});
-});
-
-// Реакция на клик по кнопке корзины
-events.on('basket:open', () => {
+// Реакция на клик по кнопке корзины и удаления товара из корзины
+events.on('basket:render', () => {
 	modalElement.render({
 		content: basketElement.render({
 			basketPrice: order.total,
-			basketList: Array.from(order.items).map(
-				(id: TProductId, index: number) => {
-					const product = productsList.getProductById(id);
-					const cardElement = new BasketCard(
-						cloneTemplate(basketCardTemplate),
-						{
-							handleItemRemove: () => {
-								events.emit('item:remove', product);
-							},
-						}
-					);
-					return cardElement.render({
-						itemIndex: index + 1,
-						title: product.title,
-						price: product.price,
-					});
-				}
-			),
+			basketList: basketItems,
 			isValid: !order.checkVlidity().items,
 			error: order.checkVlidity().items,
 		}),
 	});
 });
 
+// Реакция на изменение списка корзины
+events.on('items:change', () => {
+	basketItems = Array.from(order.items).map((id: TProductId, index: number) => {
+		const product = productsList.getProductById(id);
+		const cardElement = new BasketCard(cloneTemplate(basketCardTemplate), {
+			handleItemRemove: () => {
+				pageElement.basketCounter = order.removeItem(product.id, product.price);
+				events.emit('items:change');
+				events.emit('basket:render');
+			},
+		});
+		return cardElement.render({
+			itemIndex: index + 1,
+			title: product.title,
+			price: product.price,
+		});
+	});
+});
+
 // Реакция на клик по карточке товара
-events.on('card:select', (item: Product) => {
+events.on('card:select', (product: IProduct) => {
 	const cardElement = new PreviewCard(cloneTemplate(cardPreviewTemplate), {
 		handleAddToBasket: () => {
-			pageElement.basketCounter = order.addItem(item.id, item.price);
+			pageElement.basketCounter = order.addItem(product.id, product.price);
+			events.emit('items:change');
 			cardElement.toggleAction();
 		},
 		handleRemoveFromBasket: () => {
-			pageElement.basketCounter = order.removeItem(item.id, item.price);
+			pageElement.basketCounter = order.removeItem(product.id, product.price);
+			events.emit('items:change');
 			cardElement.toggleAction();
 		},
-		cardAction: order.items.includes(item.id) ? 'remove' : 'add',
+		cardAction: order.items.includes(product.id) ? 'remove' : 'add',
 	});
 
 	modalElement.render({
 		content: cardElement.render({
-			image: item.image,
-			category: item.category,
-			title: item.title,
-			description: item.description,
-			price: item.price,
+			image: product.image,
+			category: product.category,
+			title: product.title,
+			description: product.description,
+			price: product.price,
 		}),
 	});
 });

@@ -46,7 +46,7 @@ yarn build
 Товар
 
 ```
-export interface IProduct {
+interface IProduct {
     id: string;
     title: string;
     image: string;
@@ -58,33 +58,33 @@ export interface IProduct {
 Данные товара, используемые для карточки в каталоге
 
 ```
-export type TProductListCardInfo = Pick<IProduct, 'category' | 'title' | 'image' | 'price'>;
+type TProductListCardInfo = Pick<IProduct, 'category' | 'title' | 'image' | 'price'>;
 ```
 
 Данные товара, используемые для карточки просмотра подробной информации о товаре
 
 ```
-export type TProductPreviewCardInfo = Pick<IProduct, 'category' | 'title' | 'description' | 'image' | 'price'>;
+type TProductPreviewCardInfo = Pick<IProduct, 'category' | 'title' | 'description' | 'image' | 'price'>;
 ```
 
 Данные товара, используемые для отображения информации о товаре в корзине пользователя
 
 ```
-export type TProductBasketCardInfo = Pick<IProduct, 'title' | 'price'>;
+type TProductBasketCardInfo = Pick<IProduct, 'title' | 'price'>;
 ```
 
 Интерфейс модели данных (список товаров)
 
 ```
-export interface IListModel<IProduct> {
+interface IListModel<IProduct> {
     items: IProduct[];    
 }
 ```
 
 Заказ
-
+Интерфейс модели данных
 ```
-export interface IOrder {
+interface IOrder {
     payment: string;
     address: string;
     email: string;
@@ -95,7 +95,7 @@ export interface IOrder {
 ```
 
 ```
-export interface IOrderData {    
+interface IOrderData {    
     addItem(id: TProductId, price: number): number;
     removeItem(id: TProductId, price: number): number;
     checkVlidity(): TOrderValidationError;
@@ -268,14 +268,14 @@ export interface IOrderData {
 Взаимодействие осуществляется за счет событий генерируемых с помощью брокера событий и обработчиков этих событий, описанных в `index.ts`\
 В `index.ts` сначала создаются экземпляры всех необходимых классов, а затем настраивается обработка событий.
 
-Модели данных на данный момент событий не генерируют и мне начинает казаться, что это не правильно.
+Модели данных событий не генерируют.
 
 *События, возникающие при взаимодействии пользователя с интерфейсом (генерируются классами, отвечающими за представление)*
 - `modal:open` - открытие модального окна 
 - `modal:closed` -  закрытие модального окна
 - `card:select` -  выбор карточки товара для отображения в модальном окне
-- `basket:open` -  открытие корзины
-- `item:remove` -  удаление товара из корзины
+- `basket:render` -  рендер корзины при открытии и ререндер при изменении списка товаров
+- `items:change` -  изменение списка товаров в корзине (при добавлении и удалении товара)
 - `order:start` -  начало оформления заказа в корзине
 - `order:proceed` -  подтверждение заполнения первой формы заказа (способ оплаты и адрес доставки товара)
 - `order:place` -  подтверждение заполнения второй формы заказа (адрес электронной почты и телефон), отправка данных заказа на сервер

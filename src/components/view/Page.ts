@@ -13,10 +13,10 @@ export class Page {
 		this._basketCounter = ensureElement<HTMLElement>('.header__basket-counter');
 		this.basketButton = ensureElement<HTMLButtonElement>('.header__basket');
 
-        this._basketCounter.textContent = Number(0).toString();
+		this._basketCounter.textContent = Number(0).toString();
 
 		this.basketButton.addEventListener('click', () => {
-			events.emit('basket:open');
+			events.emit('basket:render');
 		});
 	}
 
